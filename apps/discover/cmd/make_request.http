@@ -1,0 +1,17 @@
+
+
+### registry
+POST http://localhost:8866/api/register
+Content-Type: application/json
+
+{
+  "env": "dev",
+  "appid": "101",
+  "hostname": "localhost:9001",
+  "addrs": ["localhost:9001","localhost:9002"],
+  "version": "v1.1.1",
+  "status": 1,
+  "dirty_timestamp": 1618477331,
+  "latest_timestamp": 1618476331
+}
+

@@ -1,6 +1,8 @@
 package test
 
 import (
+	"encoding/json"
+	"fmt"
 	"oi.io/apps/discover/model"
 	"testing"
 )
@@ -20,6 +22,10 @@ func TestAaaB(t *testing.T) {
 }
 
 func TestRe(t *testing.T) {
-	r := model.NewRegistry()
-	r.Renew(req.Env, req.AppId, req.Hostname)
+	x:=new(model.RequestRegister)
+	marshal, err := json.Marshal(x)
+	if err!=nil {
+		t.Fatal(err)
+	}
+	fmt.Println(string(marshal))
 }
