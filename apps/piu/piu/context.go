@@ -15,6 +15,8 @@ type Context struct {
 	Path       string
 	Method     string
 	StatusCode int
+	handlers   []HandlerFunc
+	index      int
 }
 
 func (c *Context) Deadline() (deadline time.Time, ok bool) {
@@ -35,7 +37,7 @@ func (c *Context) Value(key interface{}) interface{} {
 }
 
 func NewContext(writer http.ResponseWriter, request *http.Request) *Context {
-	return &Context{Writer: writer, Request: request, Path: request.RequestURI, Method: request.Method}
+	return &Context{Writer: writer, Request: request, Path: request.RequestURI, Method: request.Method, index: -1}
 }
 
 func (c *Context) Param(key string) string {
@@ -89,5 +91,11 @@ func (c *Context) Json(statusCode int, data interface{}) {
 	encoder := json.NewEncoder(c.Writer)
 	if err := encoder.Encode(data); err != nil {
 		http.Error(c.Writer, err.Error(), http.StatusInternalServerError)
+	}
+}
+func (c *Context) Next() {
+	c.index++
+	for ; c.index < len(c.handlers); c.index++ {
+		c.handlers[c.index](c)
 	}
 }

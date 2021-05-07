@@ -21,12 +21,15 @@ func main() {
 	addr := ":8086"
 	engine := piu.NewEngine()
 	v1 := engine.Group("/v1")
+	//v1.Use(piu.Logger())
+	v1.Use(piu.Logger())
 	{
 		v1.Get("/hello", hello)
 		v1.Get("/:lang/say_hello", SayHello)
 		v1.Get("/:lang/say_bye/*", SayBye)
 	}
 	v1Say := v1.Group("/say")
+	//v1Say.Use(piu.Logger())
 	{
 		v1Say.Get("/hello", hello)
 		v1Say.Get("/:lang/say_hello", SayHello)

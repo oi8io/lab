@@ -2,6 +2,7 @@ package piu
 
 import (
 	"net/http"
+	"strings"
 )
 
 var _ http.Handler = NewEngine()
@@ -31,11 +32,19 @@ func NewEngine() *Engine {
 	return engine
 }
 
-func NotFound(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(http.StatusNotFound)
+func NotFound(c *Context) {
+	c.Status(http.StatusNotFound)
 }
 
 func (e *Engine) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	var middlewares []HandlerFunc
+
+	for _, group := range e.groups {
+		if strings.HasPrefix(r.URL.Path, group.prefix) {
+			middlewares = append(middlewares, group.middlewares...)
+		}
+	}
 	ctx := NewContext(w, r)
+	ctx.handlers = middlewares
 	e.route.Handle(ctx)
 }

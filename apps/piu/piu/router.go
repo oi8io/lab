@@ -83,9 +83,11 @@ func (r *router) Handle(c *Context) {
 	node, params := r.getRoute(c.Method, c.Path)
 	c.Params = params
 	if node == nil {
-		NotFound(c.Writer, c.Request)
-		return
+		c.handlers = append(c.handlers,NotFound)
+	}else {
+		key := r.GetRouteKey(c.Method, node.pattern)
+		handler := r.handlers[key]
+		c.handlers = append(c.handlers, handler)
 	}
-	key := r.GetRouteKey(c.Method, node.pattern)
-	r.handlers[key](c)
+	c.Next()
 }

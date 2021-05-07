@@ -14,15 +14,18 @@ type RouterGroup struct {
 	middlewares []HandlerFunc
 	parent      *RouterGroup
 	engine      *Engine
-	groups      []*RouterGroup
 }
 
 func (r *RouterGroup) Group(prefix string) *RouterGroup {
 	group := NewRouterGroup(r.engine)
 	group.prefix = r.prefix + prefix
 	group.parent = r
-	r.groups = append(r.groups, group)
+	group.engine.groups = append(group.engine.groups, group)
 	return group
+}
+
+func (r *RouterGroup) Use(middleware ...HandlerFunc) {
+	r.middlewares = append(r.middlewares, middleware...)
 }
 
 func (r *RouterGroup) AddRouter(method, pattern string, handlerFunc HandlerFunc) {
