@@ -1,6 +1,9 @@
 package piu
 
-import "net/http"
+import (
+	"net/http"
+	"path"
+)
 
 type iRouterGroup interface {
 	Get(pattern string, handlerFunc HandlerFunc)
@@ -34,6 +37,27 @@ func (r *RouterGroup) AddRouter(method, pattern string, handlerFunc HandlerFunc)
 
 func (r *RouterGroup) Get(pattern string, handlerFunc HandlerFunc) {
 	r.AddRouter(http.MethodGet, pattern, handlerFunc)
+}
+
+func (r *RouterGroup) createStaticHandler(relativePath string, fs http.FileSystem) HandlerFunc {
+	absolutePath := path.Join(r.prefix, relativePath)
+	fileServer := http.StripPrefix(absolutePath, http.FileServer(fs))
+	return func(c *Context) {
+		file := c.Param("filepath")
+		// Check if file exists and/or if we have permission to access it
+		if _, err := fs.Open(file); err != nil {
+			c.Status(http.StatusNotFound)
+			return
+		}
+
+		fileServer.ServeHTTP(c.Writer, c.Request)
+	}
+}
+
+func (r *RouterGroup) Static(relativePath string, root string) {
+	handler := r.createStaticHandler(relativePath, http.Dir(root))
+	urlPattern := path.Join(relativePath, "/*filepath")
+	r.Get(urlPattern, handler)
 }
 
 func (r *RouterGroup) Put(pattern string, handlerFunc HandlerFunc) {

@@ -3,6 +3,7 @@ package piu
 import (
 	"encoding/json"
 	"errors"
+	"html/template"
 	"io"
 	"net/http"
 	"time"
@@ -17,6 +18,7 @@ type Context struct {
 	StatusCode int
 	handlers   []HandlerFunc
 	index      int
+	engine     *Engine
 }
 
 func (c *Context) Deadline() (deadline time.Time, ok bool) {
@@ -38,6 +40,10 @@ func (c *Context) Value(key interface{}) interface{} {
 
 func NewContext(writer http.ResponseWriter, request *http.Request) *Context {
 	return &Context{Writer: writer, Request: request, Path: request.RequestURI, Method: request.Method, index: -1}
+}
+
+func (c *Context) AddFuncMap(name string, function interface{}) {
+	c.engine.funcMap[name] = function
 }
 
 func (c *Context) Param(key string) string {
@@ -80,9 +86,21 @@ func (c *Context) String(statusCode int, content string) {
 	c.Writer.Write([]byte(content))
 }
 
-func (c *Context) Html(statusCode int, html string) {
+func (c *Context) Fail(statusCode int, content string) {
 	c.Status(statusCode)
-	c.Writer.Write([]byte(html))
+	c.Writer.Write([]byte(content))
+}
+
+func (c *Context) getTemplate() *template.Template {
+	return c.engine.getTemplate()
+}
+
+func (c *Context) HTML(statusCode int, name string, data interface{}) {
+	c.Status(statusCode)
+	c.SetHeader("Content-Type", "text/html")
+	if err := c.getTemplate().ExecuteTemplate(c.Writer, name, data); err != nil {
+		c.Fail(http.StatusInternalServerError, err.Error())
+	}
 }
 
 func (c *Context) Json(statusCode int, data interface{}) {
