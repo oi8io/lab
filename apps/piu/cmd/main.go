@@ -9,12 +9,14 @@ func main() {
 	addr := ":8086"
 	engine := piu.NewEngine()
 	engine.Use(piu.Logger())
+	engine.Use(piu.Recovery())
 	engine.AddFuncMap("FormatAsDate", api.FormatAsDate)
 	engine.LoadHTMLGlob("/Users/anker/develop/person/lab/apps/piu/cmd/templates/*")
 	engine.Static("/assets", "./static")
 	engine.Get("/students", api.Students)
 	engine.Get("/date", api.Date)
 	engine.Get("/hello", api.SayHello)
+	engine.Get("/panic", api.Panic)
 
 	v1 := engine.Group("/v1")
 	//v1.Use(piu.Logger())

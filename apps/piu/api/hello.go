@@ -16,6 +16,10 @@ func SayHello(c *piu.Context) {
 	c.Json(http.StatusOK, piu.H{"status": "OK", "code": 0, "message": "you are hello"})
 }
 
+func Panic(c *piu.Context) {
+	panic("try to Panic")
+}
+
 func SayBye(c *piu.Context) {
 	c.Json(http.StatusOK, piu.H{"status": "OK", "code": 0, "message": "you are byebye"})
 }
