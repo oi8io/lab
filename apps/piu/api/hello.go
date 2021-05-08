@@ -25,6 +25,7 @@ func SayBye(c *piu.Context) {
 }
 
 func Students(c *piu.Context) () {
+	fmt.Println("execting")
 	stu1 := &student{Name: "BiuBiu", Age: 20}
 	stu2 := &student{Name: "BiuBiu1", Age: 22}
 	content := piu.H{

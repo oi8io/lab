@@ -80,14 +80,16 @@ func (r *router) getRoute(method, path string) (node *node, params map[string]st
 }
 
 func (r *router) Handle(c *Context) {
-	node, params := r.getRoute(c.Method, c.Path)
+	node, params := r.getRoute(c.Method, c.Path) //匹配路由
 	c.Params = params
-	if node == nil {
+	if node == nil { //  找不到路由，将404追加到里面
 		c.handlers = append(c.handlers,NotFound)
 	}else {
 		key := r.GetRouteKey(c.Method, node.pattern)
 		handler := r.handlers[key]
+		// 找到路由，当前路由方法追加到里面
 		c.handlers = append(c.handlers, handler)
 	}
+	// 开始执行
 	c.Next()
 }

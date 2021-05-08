@@ -9,16 +9,17 @@ import (
 	"time"
 )
 
+//Context 跟随整个请求生命周期，处理请求，每个请求一个context
 type Context struct {
-	Writer     http.ResponseWriter
-	Request    *http.Request
-	Params     map[string]string
-	Path       string
-	Method     string
-	StatusCode int
-	handlers   []HandlerFunc
-	index      int
-	engine     *Engine
+	Writer     http.ResponseWriter   // writer
+	Request    *http.Request         // request
+	Params     map[string]string     // url参数 如/hello/:name 访问 /hello/piu 则params[name]=piu
+	Path       string                // URI /hello/piu
+	Method     string                // GET POST PUT DELETE 其他暂时不支持
+	StatusCode int                   // 响应状态码 200 401 etc.
+	handlers   []HandlerFunc         // 中间件及最终执行的handler
+	index      int                   // index，当前执行到第几个handler了
+	engine     *Engine               // 引擎，主要获取全局template对象
 }
 
 func (c *Context) Deadline() (deadline time.Time, ok bool) {
