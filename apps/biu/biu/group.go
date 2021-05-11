@@ -3,7 +3,7 @@ package biu
 import (
 	"fmt"
 	"log"
-	"oi.io/apps/biu/biu/lru"
+	"oi.io/apps/biu/biu/singleflight"
 	"sync"
 )
 
@@ -18,6 +18,7 @@ type CacheGroup struct {
 	mainCache iCache
 	getter    Getter
 	peers     PeerPicker
+	loader    *singleflight.Group
 }
 
 func NewCacheGroup(name string, maxCacheByte int64, getter Getter) *CacheGroup {
@@ -32,13 +33,10 @@ func NewCacheGroup(name string, maxCacheByte int64, getter Getter) *CacheGroup {
 			maxCacheBytes: maxCacheByte,
 		},
 		getter: getter,
+		loader: &singleflight.Group{},
 	}
 	groups[name] = g
 	return g
-}
-
-func (g *CacheGroup) getLru() lru.CacheLru {
-	panic("implement me")
 }
 
 func (g *CacheGroup) getFromPeer(peer PeerGetter, key string) (ByteView, error) {
@@ -50,16 +48,22 @@ func (g *CacheGroup) getFromPeer(peer PeerGetter, key string) (ByteView, error) 
 }
 
 func (g *CacheGroup) load(key string) (value ByteView, err error) {
-	if g.peers != nil { //先远程获取
-		if peer, ok := g.peers.PickPeer(key); ok {
-			if value, err = g.getFromPeer(peer, key); err == nil {
-				log.Printf("[biuCache] success to get from peer [%s] [%s]", peer.Name(), key)
-				return value, nil
+	val, err := g.loader.Do(key, func() (interface{}, error) {
+		if g.peers != nil {
+			if peer, ok := g.peers.PickPeer(key); ok {
+				if value, err := g.getFromPeer(peer, key); err == nil {
+					log.Printf("[biuCache] success to get from peer [%s] [%s]", peer.Name(), key)
+					return value, nil
+				}
+				log.Println("[biuCache] Failed to get from peer", err)
 			}
-			log.Println("[biuCache] Failed to get from peer", err)
 		}
+		return g.getLocally(key)
+	})
+	if err != nil {
+		return val.(ByteView), nil
 	}
-	return g.getLocally(key)
+	return
 }
 
 func (g *CacheGroup) Get(key string) (view ByteView, err error) {
@@ -67,7 +71,6 @@ func (g *CacheGroup) Get(key string) (view ByteView, err error) {
 		return ByteView{}, fmt.Errorf("key is required")
 	}
 	if v, ok := g.mainCache.get(key); ok {
-		log.Printf("[%s] hit [%s]", g.name, key)
 		return v, nil
 	}
 	return g.load(key)

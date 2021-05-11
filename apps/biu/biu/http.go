@@ -58,8 +58,7 @@ func (p *HTTPPool) Set(peers ...string) {
 func (h *HTTPPool) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	path := r.URL.Path
 	split := strings.Split(path, "/")
-	fmt.Println(split)
-	//第一个'/'之前的为空
+	// 第一个'/'之前的为空
 	if len(split) == 0 || len(split) != 4 || split[1] != defaultBasePath {
 		http.Error(w, fmt.Sprint("params error"), http.StatusNotFound)
 		return
@@ -79,7 +78,6 @@ func (h *HTTPPool) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			_, _ = w.Write(value.ByteSlice())
 		}
 	}
-
 }
 
 func StartServe(h *HTTPPool) {

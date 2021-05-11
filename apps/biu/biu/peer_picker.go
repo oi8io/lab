@@ -3,8 +3,10 @@ package biu
 import (
 	"fmt"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"net/url"
+	"time"
 )
 
 // PeerPicker() 的 PickPeer() 方法用于根据传入的 key 选择相应节点 PeerGetter。
@@ -34,6 +36,8 @@ func (h *httpGetter) Get(group string, key string) ([]byte, error) {
 		url.QueryEscape(group),
 		url.QueryEscape(key),
 	)
+	log.Printf("start request [%s]",u)
+	time.Sleep(1)
 	res, err := http.Get(u)
 	if err != nil {
 		return nil, err
