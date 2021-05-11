@@ -2,6 +2,7 @@ package biu
 
 import (
 	"fmt"
+	"log"
 	"oi.io/apps/biu/biu/lru"
 	"sync"
 )
@@ -16,6 +17,7 @@ type CacheGroup struct {
 	name      string
 	mainCache iCache
 	getter    Getter
+	peers     PeerPicker
 }
 
 func NewCacheGroup(name string, maxCacheByte int64, getter Getter) *CacheGroup {
@@ -39,7 +41,24 @@ func (g *CacheGroup) getLru() lru.CacheLru {
 	panic("implement me")
 }
 
-func (g *CacheGroup) load(key string) (view ByteView, err error) {
+func (g *CacheGroup) getFromPeer(peer PeerGetter, key string) (ByteView, error) {
+	bytes, err := peer.Get(g.name, key)
+	if err != nil {
+		return ByteView{}, err
+	}
+	return ByteView{b: bytes}, nil
+}
+
+func (g *CacheGroup) load(key string) (value ByteView, err error) {
+	if g.peers != nil { //先远程获取
+		if peer, ok := g.peers.PickPeer(key); ok {
+			if value, err = g.getFromPeer(peer, key); err == nil {
+				log.Printf("[biuCache] success to get from peer [%s] [%s]", peer.Name(), key)
+				return value, nil
+			}
+			log.Println("[biuCache] Failed to get from peer", err)
+		}
+	}
 	return g.getLocally(key)
 }
 
@@ -48,7 +67,7 @@ func (g *CacheGroup) Get(key string) (view ByteView, err error) {
 		return ByteView{}, fmt.Errorf("key is required")
 	}
 	if v, ok := g.mainCache.get(key); ok {
-		fmt.Println("cache hit", key)
+		log.Printf("[%s] hit [%s]", g.name, key)
 		return v, nil
 	}
 	return g.load(key)
@@ -66,6 +85,10 @@ func (g *CacheGroup) getLocally(key string) (value ByteView, err error) {
 
 func (g *CacheGroup) populateCache(key string, value ByteView) {
 	g.mainCache.add(key, value)
+}
+
+func (g *CacheGroup) RegisterPeers(peers PeerPicker) {
+	g.peers = peers
 }
 
 func getGroup(name string) *CacheGroup {

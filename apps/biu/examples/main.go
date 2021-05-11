@@ -6,7 +6,7 @@ import (
 	"oi.io/apps/biu/biu"
 )
 
-func main() {
+func main1() {
 	var db = map[string]string{
 		"Tom":  "630",
 		"Jack": "589",
@@ -24,5 +24,5 @@ func main() {
 		}
 		return nil, fmt.Errorf("%s not exist", key)
 	}))
-	biu.StartServe()
+	biu.StartServe(biu.NewHTTPPool(":8082"))
 }
