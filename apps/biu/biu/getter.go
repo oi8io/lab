@@ -9,3 +9,5 @@ type GetterFunc func(key string) (value []byte, err error)
 func (f GetterFunc) Get(key string) ([]byte, error) {
 	return f(key)
 }
+
+

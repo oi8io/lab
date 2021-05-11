@@ -67,3 +67,7 @@ func (g *CacheGroup) getLocally(key string) (value ByteView, err error) {
 func (g *CacheGroup) populateCache(key string, value ByteView) {
 	g.mainCache.add(key, value)
 }
+
+func getGroup(name string) *CacheGroup {
+	return groups[name]
+}
