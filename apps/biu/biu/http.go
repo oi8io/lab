@@ -6,6 +6,7 @@ import (
 	"oi.io/apps/biu/biu/consistent"
 	"strings"
 	"sync"
+	"time"
 )
 
 const (
@@ -44,14 +45,14 @@ type CacheHttpHandler struct {
 }
 
 // Set updates the pool's list of peers.
-func (p *HTTPPool) Set(peers ...string) {
+func (p *HTTPPool) Set(nodeMap map[string]string) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	p.peers = consistent.NewHashMap(defaultReplicas, nil)
-	p.peers.Add(peers...)
-	p.httpGetters = make(map[string]*httpGetter, len(peers))
-	for _, peer := range peers {
-		p.httpGetters[peer] = &httpGetter{name: peer, baseURL: peer + "/" + p.basePath + "/"}
+	p.peers.Add(nodeMap)
+	p.httpGetters = make(map[string]*httpGetter, len(nodeMap))
+	for name, peer := range nodeMap {
+		p.httpGetters[name] = &httpGetter{name: name, baseURL: peer + "/" + p.basePath + "/"}
 	}
 }
 
@@ -70,11 +71,12 @@ func (h *HTTPPool) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if r.Method == http.MethodGet {
+		time.Sleep(5)//消极怠工
 		if value, err := g.Get(key); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		} else {
-			w.Header().Set("Content-Type", "application/text")
+			w.Header().Set("Content-Type", "text/plain")
 			_, _ = w.Write(value.ByteSlice())
 		}
 	}

@@ -9,7 +9,7 @@ go build -o biudis
 ./${processName} -port=8001 &
 ./${processName} -port=8002 &
 ./${processName} -port=8003 -enableApi=1 &
-# todo fixed mulil reqeust send
+# todo fixed multil reqeust send
 sleep 2
 echo ">>> start test"
 curl "http://localhost:9999/api?key=Tom" &

@@ -1,8 +1,8 @@
 package main
 
 import (
-	"flag"
 	"fmt"
+	"golang.org/x/sync/errgroup"
 	"log"
 	"net/http"
 	"oi.io/apps/biu/biu"
@@ -15,8 +15,8 @@ var db = map[string]string{
 	"xxx":  "768",
 }
 
-func createGroup() *biu.CacheGroup {
-	return biu.NewCacheGroup("scores", 2<<10, biu.GetterFunc(
+func createGroup(name string) *biu.CacheGroup {
+	return biu.NewCacheGroup(name, 2<<10, biu.GetterFunc(
 		func(key string) ([]byte, error) {
 			log.Println("[SlowDB] search key", key)
 			if v, ok := db[key]; ok {
@@ -27,16 +27,32 @@ func createGroup() *biu.CacheGroup {
 }
 
 /**
-┌─────────────────┐           ┌─────────────────┐
-│      main       │──────────▶│   StartServer   │
-└─────────────────┘           └─────────────────┘
- */
-func startCacheServer(addr string, addrs []string, gee *biu.CacheGroup) {
-	peers := biu.NewHTTPPool(addr)
-	peers.Set(addrs...)
+┌─────────────────┐
+│     client      │
+└─────────────────┘
+         │
+         ▼
+┌─────────────────┐   ┌─────────────────┐                   ┌─────────────────┐
+│     server      │   │      peers      │──────────────────▶│      peer       │
+└─────────────────┘   └─────────────────┘                   └─────────────────┘
+         │                     ▲                                     │
+         ▼                     Λ                                     ▼
+┌─────────────────┐           ╱ ╲                                    Λ
+│      local      │─────────▶▕ S ▏          ┌─────────────────┐     ╱ ╲
+└─────────────────┘           ╲ ╱         ┌─│    http get     │◀───▕ s ▏
+                               V          │ └─────────────────┘     ╲ ╱
+                               │          │                          V
+                               ▼          │                          ▼
+                          .─────────.     │                 ┌─────────────────┐
+                         (    end    )◀───┴─────────────────│       db        │
+                          `─────────'                       └─────────────────┘
+*/
+func startCacheServer(name, addr string, nodeMap map[string]string, gee *biu.CacheGroup) error {
+	peers := biu.NewHTTPPool(name)
+	peers.Set(nodeMap)
 	gee.RegisterPeers(peers)
 	log.Println("biu is running at", addr)
-	log.Fatal(http.ListenAndServe(addr[7:], peers))
+	return http.ListenAndServe(addr[7:], peers)
 }
 
 func startAPIServer(apiAddr string, c *biu.CacheGroup) {
@@ -48,36 +64,44 @@ func startAPIServer(apiAddr string, c *biu.CacheGroup) {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 				return
 			}
-			w.Header().Set("Content-Type", "application/octet-stream")
+			w.Header().Set("Content-Type", "application/text")
 			w.Write(view.ByteSlice())
-
 		}))
-	log.Println("fontend server is running at", apiAddr)
+	log.Println("frontend server is running at", apiAddr, c.GetName())
 	log.Fatal(http.ListenAndServe(apiAddr[7:], nil))
 
 }
 
-func main() {
-	var port int
-	var enableApi bool
-	flag.IntVar(&port, "port", 8001, "biu server port")
-	flag.BoolVar(&enableApi, "enableApi", false, "Start a enableApi server?")
-	flag.Parse()
+var grr errgroup.Group
+
+func startMultiServers(addrMap map[string]string) {
 	apiAddr := "http://localhost:9999"
-	addrMap := map[int]string{
-		8001: "http://localhost:8001",
-		8002: "http://localhost:8002",
-		8003: "http://localhost:8003",
-	}
 
-	var addrs []string
-	for _, v := range addrMap {
-		addrs = append(addrs, v)
+	var enableApi bool
+	for i, v := range addrMap {
+		name := i
+		addr := v
+		gee := createGroup(i)
+		if !enableApi {
+			enableApi = true
+			go startAPIServer(apiAddr, gee)
+		}
+		grr.Go(func() error {
+			return startCacheServer(name, addr, addrMap, gee)
+		})
 	}
+	err := grr.Wait()
+	if err != nil {
+		log.Fatal(err)
+	}
+	log.Print("Start server success")
+}
 
-	gee := createGroup()
-	if enableApi {
-		go startAPIServer(apiAddr, gee)
+func main() {
+	addrMap := map[string]string{
+		"8001": "http://localhost:8001",
+		"8002": "http://localhost:8002",
+		"8003": "http://localhost:8003",
 	}
-	startCacheServer(addrMap[port], []string(addrs), gee)
+	startMultiServers(addrMap)
 }

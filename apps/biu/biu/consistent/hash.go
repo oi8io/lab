@@ -30,8 +30,8 @@ func NewHashMap(replicas int, hashFunc hashFunc, ) *HashMap {
 }
 
 // Add adds some keys to the hash.
-func (m *HashMap) Add(nodeName ...string) {
-	for _, key := range nodeName {
+func (m *HashMap) Add(nodeMap map[string]string) {
+	for key, _ := range nodeMap {
 		for i := 0; i < m.replicas; i++ {
 			hash := int(m.hashFunc([]byte(strconv.Itoa(i) + key)))
 			m.keys = append(m.keys, hash)
