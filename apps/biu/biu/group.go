@@ -3,6 +3,7 @@ package biu
 import (
 	"fmt"
 	"log"
+	"oi.io/apps/biu/biu/pb"
 	"oi.io/apps/biu/biu/singleflight"
 	"sync"
 )
@@ -40,11 +41,16 @@ func NewCacheGroup(name string, maxCacheByte int64, getter SourceGetter) *CacheG
 }
 
 func (g *CacheGroup) getFromPeer(peer PeerGetter, key string) (ByteView, error) {
-	bytes, err := peer.Get(peer.Name(), key)
+	var res = &pb.Response{}
+	request := &pb.Request{
+		Group: peer.Name(),
+		Key:   key,
+	}
+	err := peer.Get(request, res)
 	if err != nil {
 		return ByteView{}, err
 	}
-	return ByteView{b: bytes}, nil
+	return ByteView{b: res.Value}, nil
 }
 
 func (g *CacheGroup) load(key string) (value ByteView, err error) {
@@ -73,6 +79,27 @@ func (g *CacheGroup) load(key string) (value ByteView, err error) {
 1. 先读取缓存，如果缓存中不存在则跳转到2
 2. 获取服务器列表，将请求分配到指定的服务器获取，如果指定服务器没有获取到，则跳转到3
 3. 获取原始数据（从数据库读取或者文件之类的）
+┌─────────────────┐
+│     client      │
+└─────────────────┘
+         │
+         │
+         ▼
+┌─────────────────┐  ┌─────────────────┐          ┌─────────────────┐
+│     server      │  │      peers      │─────────▶│      peer       │
+└─────────────────┘  └─────────────────┘          └─────────────────┘
+         │                    ▲                            │
+         │                    N                            │
+         ▼                    Λ                            ▼
+┌─────────────────┐          ╱ ╲                           Λ
+│      local      │────────▶▕ S ▏ ┌─────────────────┐     ╱ ╲      ┌─────────────────┐
+└─────────────────┘          ╲ ╱  │    http get     │◀─Y─▕ s ▏─N──▶│       db        │
+                              V   └─────────────────┘     ╲ ╱      └─────────────────┘
+                              Y            │               V                │
+                              │            │                                │
+                              │            │           .─────────.          │
+                              └────────────┴─────────▶(    end    )◀────────┘
+                                                       `─────────'
 */
 func (g *CacheGroup) Get(key string) (view ByteView, err error) {
 	if key == "" {

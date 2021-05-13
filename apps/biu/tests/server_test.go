@@ -27,6 +27,7 @@ func TestCache(t *testing.T) {
 	}
 	all, _ := ioutil.ReadAll(get.Body)
 	fmt.Println(string(all))
+	fmt.Printf("result [%s] \n",string(all))
 }
 func BenchmarkCache(b *testing.B) {
 	//b.N  = 10

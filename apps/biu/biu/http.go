@@ -2,8 +2,10 @@ package biu
 
 import (
 	"fmt"
+	"github.com/golang/protobuf/proto"
 	"net/http"
 	"oi.io/apps/biu/biu/consistent"
+	"oi.io/apps/biu/biu/pb"
 	"strings"
 	"sync"
 	"time"
@@ -71,14 +73,20 @@ func (h *HTTPPool) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if r.Method == http.MethodGet {
-		time.Sleep(5)//消极怠工
-		if value, err := g.Get(key); err != nil {
+		time.Sleep(5) //消极怠工
+		value, err := g.Get(key)
+		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
-		} else {
-			w.Header().Set("Content-Type", "text/plain")
-			_, _ = w.Write(value.ByteSlice())
 		}
+
+		body, err := proto.Marshal(&pb.Response{Value: value.ByteSlice()})
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		w.Header().Set("Content-Type", "application/octet-stream")
+		_, _ = w.Write(body)
 	}
 }
 
