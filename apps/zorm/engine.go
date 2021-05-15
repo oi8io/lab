@@ -2,12 +2,15 @@ package zorm
 
 import (
 	"database/sql"
+	"fmt"
+	"oi.io/apps/zorm/dialect"
 	"oi.io/apps/zorm/log"
 	"oi.io/apps/zorm/session"
 )
 
 type Engine struct {
-	db *sql.DB
+	db      *sql.DB
+	dialect dialect.Dialect
 }
 
 func NewEngine(driver, source string) (e *Engine, err error) {
@@ -21,7 +24,11 @@ func NewEngine(driver, source string) (e *Engine, err error) {
 		log.Error(err)
 		return
 	}
-	e = &Engine{db: db}
+	getDialect, ok := dialect.GetDialect(driver)
+	if !ok {
+		return nil, fmt.Errorf("dialect %s Not Found", driver)
+	}
+	e = &Engine{db: db, dialect: getDialect}
 	log.Infof("Database Connect to [%s][%s] success", driver, source)
 	return
 }
@@ -35,5 +42,5 @@ func (e *Engine) Close() {
 }
 
 func (e *Engine) NewSession() *session.Session {
-	return session.NewSession(e.db)
+	return session.NewSession(e.db, e.dialect)
 }
