@@ -14,6 +14,7 @@ type Field struct {
 	Type string
 	Tag  string
 }
+
 // 主要包含被映射的对象 Model、表名 Name 和字段 Fields。
 // Schema represents a table of database
 type Schema struct {
@@ -22,9 +23,8 @@ type Schema struct {
 	Fields     []*Field
 	FieldNames []string
 	fieldMap   map[string]*Field
+	hookMap    map[string]*interface{}
 }
-
-
 
 // FieldNames 包含所有的字段名(列名)，fieldMap 记录字段名和 Field 的映射关系，方便之后直接使用，无需遍历 Fields。
 func (schema *Schema) GetField(name string) *Field {

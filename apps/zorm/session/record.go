@@ -6,11 +6,52 @@ import (
 	"reflect"
 )
 
+const (
+	MethodBeforeQuery  = "BeforeQuery"
+	MethodAfterQuery   = "AfterQuery"
+	MethodBeforeUpdate = "BeforeUpdate"
+	MethodAfterUpdate  = "AfterUpdate"
+	MethodBeforeDelete = "BeforeDelete"
+	MethodAfterDelete  = "AfterDelete"
+	MethodBeforeInsert = "BeforeInsert"
+	MethodAfterInsert  = "AfterInsert"
+)
+
+//  calls the registered hooks
+func (s *Session) CallMethod(method string, value interface{}) {
+	/*	fm := reflect.ValueOf(s.RefTable().Model).MethodByName(method)
+		if value != nil {
+			fm = reflect.ValueOf(value).MethodByName(method)
+		}
+		param := []reflect.Value{reflect.ValueOf(s)}
+		if fm.IsValid() {
+			if v := fm.Call(param); len(v) > 0 {
+				if err, ok := v[0].Interface().(error); ok {
+					log.Error(err)
+				}
+			}
+		}
+	*/
+
+	switch method {
+	case MethodBeforeQuery:
+		if i, ok := s.RefTable().Model.(BeforeQuery); ok == true {
+			i.BeforeQuery(s)
+		}
+
+	}
+
+	return
+}
+
 func (s *Session) Insert(values ...interface{}) (int64, error) {
 	recordValues := make([]interface{}, 0)
 	for _, value := range values {
 		table := s.Model(value).RefTable()                        //查询对应的表
 		s.clause.Set(clause.INSERT, table.Name, table.FieldNames) //找到Field 并生成❓
+		if processor, ok := value.(BeforeInsert); ok {
+			_ = processor.BeforeInsert(s)
+		}
 		recordValues = append(recordValues, table.RecordValues(value))
 	}
 
@@ -28,7 +69,9 @@ func (s *Session) Find(values interface{}) error {
 	destSlice := reflect.Indirect(reflect.ValueOf(values))
 	destType := destSlice.Type().Elem()
 	table := s.Model(reflect.New(destType).Elem().Interface()).RefTable()
-
+	if processor, ok := table.Model.(BeforeQuery); ok {
+		_ = processor.BeforeQuery(s)
+	}
 	s.clause.Set(clause.SELECT, table.Name, table.FieldNames)
 	sql, vars := s.clause.Build(clause.SELECT, clause.WHERE, clause.ORDERBY, clause.LIMIT)
 	rows, err := s.Raw(sql, vars...).QueryRows()
@@ -44,6 +87,9 @@ func (s *Session) Find(values interface{}) error {
 		}
 		if err := rows.Scan(values...); err != nil {
 			return err
+		}
+		if processor, ok := dest.Addr().Interface().(AfterQuery); ok {
+			_ = processor.AfterQuery(s)
 		}
 		destSlice.Set(reflect.Append(destSlice, dest))
 	}
