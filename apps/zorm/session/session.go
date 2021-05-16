@@ -3,6 +3,7 @@ package session
 import (
 	"database/sql"
 	"fmt"
+	"oi.io/apps/zorm/clause"
 	"oi.io/apps/zorm/dialect"
 	"oi.io/apps/zorm/log"
 	"oi.io/apps/zorm/schema"
@@ -24,6 +25,7 @@ type Session struct {
 	db       *sql.DB
 	sql      strings.Builder
 	dialect  dialect.Dialect
+	clause   clause.Clause
 	refTable *schema.Schema
 	sqlVars  []interface{}
 }
@@ -35,6 +37,7 @@ func NewSession(db *sql.DB, dialect dialect.Dialect) *Session {
 func (s *Session) Clear() {
 	s.sql.Reset()
 	s.sqlVars = nil
+	s.clause = clause.Clause{}
 }
 
 func (s *Session) DB() *sql.DB {
