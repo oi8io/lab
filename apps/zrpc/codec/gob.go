@@ -38,7 +38,7 @@ func (g *GobCodec) ReadBody(i interface{}) error {
 	return g.dec.Decode(i)
 }
 
-func (g *GobCodec) Writer(header *Header, body interface{}) (err error) {
+func (g *GobCodec) Write(header *Header, body interface{}) (err error) {
 	defer func() {
 		_ = g.buf.Flush()
 		if err != nil {

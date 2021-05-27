@@ -42,7 +42,7 @@ func (e *Engine) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 ```golang
 //Context 跟随整个请求生命周期，处理请求，每个请求一个context
 type Context struct {
-	Writer     http.ResponseWriter   // writer
+	Write     http.ResponseWriter   // writer
 	Request    *http.Request         // request
 	Params     map[string]string     // url参数 如/hello/:name 访问 /hello/piu 则params[name]=piu
 	Path       string                // URI /hello/piu

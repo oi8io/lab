@@ -12,7 +12,7 @@ type Codec interface {
 	io.Closer
 	ReadHeader(header *Header) error
 	ReadBody(interface{}) error
-	Writer(header *Header, body interface{}) error
+	Write(header *Header, body interface{}) error
 }
 
 type NewCodecFunc func(io io.ReadWriteCloser) Codec

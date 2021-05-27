@@ -114,7 +114,7 @@ func (s *Server) readRequest(cc codec.Codec) (*request, error) {
 func (s *Server) sendResponse(cc codec.Codec, h *codec.Header, body interface{}, sending *sync.Mutex, ) {
 	sending.Lock()
 	defer sending.Unlock()
-	if err := cc.Writer(h, body); err != nil {
+	if err := cc.Write(h, body); err != nil {
 		log.Println("rpc server: send response error:", err)
 	}
 }
