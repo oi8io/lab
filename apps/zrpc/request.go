@@ -6,6 +6,8 @@ import (
 )
 
 type request struct {
-	h *codec.Header
+	h            *codec.Header
 	argv, replyv reflect.Value
+	mtype        *methodType
+	svc          *service
 }

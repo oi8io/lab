@@ -2,12 +2,13 @@ package zrpc
 
 import (
 	"encoding/json"
-	"fmt"
+	"errors"
 	"io"
 	"log"
 	"net"
 	"oi.io/apps/zrpc/codec"
 	"reflect"
+	"strings"
 	"sync"
 )
 
@@ -23,13 +24,29 @@ var DefaultOption = &Option{
 	CodecType:   codec.JsonType,
 }
 
+// invalidRequest is a placeholder for response argv when error occurs
+var invalidRequest = struct{}{}
+
 type Server struct {
+	serviceMap sync.Map
 }
 
 var DefaultServer = NewServer()
 
 func NewServer() *Server {
 	return &Server{}
+}
+
+func (s *Server) Register(rcvr interface{}) error {
+	service := newService(rcvr)
+	if _, dup := s.serviceMap.LoadOrStore(service.name, service); dup {
+		return errors.New("rpc: service already defined: " + service.name)
+	}
+	return nil
+}
+
+func Register(rcvr interface{}) error {
+	return DefaultServer.Register(rcvr)
 }
 
 func (s *Server) Accept(lis net.Listener) {
@@ -104,9 +121,21 @@ func (s *Server) readRequest(cc codec.Codec) (*request, error) {
 		return nil, err
 	}
 	req := &request{h: h}
-	req.argv = reflect.New(reflect.TypeOf(""))
-	if err := cc.ReadBody(req.argv.Interface()); err != nil {
-		log.Println("rpc server: read argv err:", err)
+	req.svc, req.mtype, err = s.findService(h.ServiceMethod)
+	if err != nil {
+		return req, err
+	}
+	req.argv = req.mtype.newArgv()
+	req.replyv = req.mtype.newReplyv()
+
+	// make sure that argvi is a pointer, ReadBody need a pointer as parameter
+	argvi := req.argv.Interface()
+	if req.argv.Type().Kind() != reflect.Ptr {
+		argvi = req.argv.Addr().Interface()
+	}
+	if err = cc.ReadBody(argvi); err != nil {
+		log.Println("rpc server: read body err:", err)
+		return req, err
 	}
 	return req, nil
 }
@@ -121,7 +150,31 @@ func (s *Server) sendResponse(cc codec.Codec, h *codec.Header, body interface{},
 
 func (s *Server) handleRequest(cc codec.Codec, req *request, sending *sync.Mutex, wg *sync.WaitGroup) {
 	defer wg.Done()
-	log.Println(req.h, req.argv.Elem())
-	req.replyv = reflect.ValueOf(fmt.Sprintf("rpc resp %d", req.h.Seq))
+	err := req.svc.call(req.mtype, req.argv, req.replyv)
+	if err != nil {
+		req.h.Error = err.Error()
+		s.sendResponse(cc, req.h, invalidRequest, sending)
+		return
+	}
 	s.sendResponse(cc, req.h, req.replyv.Interface(), sending)
+}
+
+func (server *Server) findService(serviceMethod string) (svc *service, mtype *methodType, err error) {
+	dot := strings.LastIndex(serviceMethod, ".")
+	if dot < 0 {
+		err = errors.New("rpc server: service/method request ill-formed: " + serviceMethod)
+		return
+	}
+	serviceName, methodName := serviceMethod[:dot], serviceMethod[dot+1:]
+	svci, ok := server.serviceMap.Load(serviceName)
+	if !ok {
+		err = errors.New("rpc server: can't find service " + serviceName)
+		return
+	}
+	svc = svci.(*service)
+	mtype = svc.method[methodName]
+	if mtype == nil {
+		err = errors.New("rpc server: can't find method " + methodName)
+	}
+	return
 }
