@@ -3,6 +3,7 @@ package zrpc
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"log"
 	"net"
@@ -10,43 +11,29 @@ import (
 	"reflect"
 	"strings"
 	"sync"
+	"time"
 )
 
-const MagicNumber = 0x3bef5c
+var (
+	DefaultServer = NewServer()
+	// invalidRequest is a placeholder for response argv when error occurs
+	invalidRequest = struct{}{}
+)
 
-type Option struct {
-	MagicNumber int
-	CodecType   codec.Type
+func Accept(lis net.Listener) {
+	DefaultServer.Accept(lis)
 }
 
-var DefaultOption = &Option{
-	MagicNumber: MagicNumber,
-	CodecType:   codec.JsonType,
+func Register(rcvr interface{}) error {
+	return DefaultServer.Register(rcvr)
 }
-
-// invalidRequest is a placeholder for response argv when error occurs
-var invalidRequest = struct{}{}
 
 type Server struct {
 	serviceMap sync.Map
 }
 
-var DefaultServer = NewServer()
-
 func NewServer() *Server {
 	return &Server{}
-}
-
-func (s *Server) Register(rcvr interface{}) error {
-	service := newService(rcvr)
-	if _, dup := s.serviceMap.LoadOrStore(service.name, service); dup {
-		return errors.New("rpc: service already defined: " + service.name)
-	}
-	return nil
-}
-
-func Register(rcvr interface{}) error {
-	return DefaultServer.Register(rcvr)
 }
 
 func (s *Server) Accept(lis net.Listener) {
@@ -58,6 +45,14 @@ func (s *Server) Accept(lis net.Listener) {
 		}
 		go s.ServerConn(conn)
 	}
+}
+
+func (s *Server) Register(rcvr interface{}) error {
+	service := newService(rcvr)
+	if _, dup := s.serviceMap.LoadOrStore(service.name, service); dup {
+		return errors.New("rpc: service already defined: " + service.name)
+	}
+	return nil
 }
 
 func (s *Server) ServerConn(conn io.ReadWriteCloser) {
@@ -80,12 +75,6 @@ func (s *Server) ServerConn(conn io.ReadWriteCloser) {
 
 }
 
-var invalidRequst = struct{}{}
-
-func Accept(lis net.Listener) {
-	DefaultServer.Accept(lis)
-}
-
 func (s *Server) serveCodec(cc codec.Codec) {
 	sending := new(sync.Mutex)
 	wg := new(sync.WaitGroup)
@@ -96,11 +85,11 @@ func (s *Server) serveCodec(cc codec.Codec) {
 				break
 			}
 			req.h.Error = err.Error()
-			s.sendResponse(cc, req.h, invalidRequst, sending)
+			s.sendResponse(cc, req.h, invalidRequest, sending)
 			continue
 		}
 		wg.Add(1)
-		go s.handleRequest(cc, req, sending, wg)
+		go s.handleRequest(cc, req, sending, wg, DefaultOption.HandleTimeout)
 	}
 }
 
@@ -148,15 +137,36 @@ func (s *Server) sendResponse(cc codec.Codec, h *codec.Header, body interface{},
 	}
 }
 
-func (s *Server) handleRequest(cc codec.Codec, req *request, sending *sync.Mutex, wg *sync.WaitGroup) {
+func (s *Server) handleRequest(cc codec.Codec, req *request, sending *sync.Mutex, wg *sync.WaitGroup, timeout time.Duration) {
 	defer wg.Done()
-	err := req.svc.call(req.mtype, req.argv, req.replyv)
-	if err != nil {
-		req.h.Error = err.Error()
-		s.sendResponse(cc, req.h, invalidRequest, sending)
+	send := make(chan struct{})
+	called := make(chan struct{})
+	go func() {
+		err := req.svc.call(req.mtype, req.argv, req.replyv)
+		called <- struct{}{}
+		if err != nil {
+			req.h.Error = err.Error()
+			s.sendResponse(cc, req.h, invalidRequest, sending)
+			send <- struct{}{}
+			return
+		}
+		s.sendResponse(cc, req.h, req.replyv.Interface(), sending)
+		send <- struct{}{}
+	}()
+	if timeout == 0 { //没有超时就一直等着，直到完成
+		<-send
+		<-called
 		return
 	}
-	s.sendResponse(cc, req.h, req.replyv.Interface(), sending)
+
+	select {
+	case <-time.After(timeout):
+		req.h.Error = fmt.Sprintf("rpc server: request handle timeout: expect within %s", timeout)
+		s.sendResponse(cc, req.h, invalidRequest, sending)
+	case <-called:
+		<-send
+	}
+
 }
 
 func (server *Server) findService(serviceMethod string) (svc *service, mtype *methodType, err error) {

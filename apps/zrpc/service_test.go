@@ -2,8 +2,11 @@ package zrpc
 
 import (
 	"fmt"
+	"net"
 	"reflect"
+	"strings"
 	"testing"
+	"time"
 )
 
 type Foo int
@@ -45,4 +48,43 @@ func TestMethodType_Call(t *testing.T) {
 	argv.Set(reflect.ValueOf(Args{Num1: 1, Num2: 3}))
 	err := s.call(mType, argv, replyv)
 	_assert(err == nil && *replyv.Interface().(*int) == 4 && mType.NumCalls() == 1, "failed to call Foo.Sum")
+}
+
+func TestClient_dialTimeout(t *testing.T) {
+	t.Parallel()
+	l, _ := net.Listen("tcp", ":0")
+
+	f := func(conn net.Conn, opt *Option) (client *Client, err error) {
+		_ = conn.Close()
+		time.Sleep(time.Second * 2)
+		return nil, nil
+	}
+	t.Run("timeout", func(t *testing.T) {
+		_, err := dialTimeout(f, "tcp", l.Addr().String(), &Option{ConnectTimeout: time.Second})
+		_assert(err != nil && strings.Contains(err.Error(), "connect timeout"), "expect a timeout error")
+	})
+	t.Run("0", func(t *testing.T) {
+		_, err := dialTimeout(f, "tcp", l.Addr().String(), &Option{ConnectTimeout: 0})
+		_assert(err == nil, "0 means no limit")
+	})
+}
+func TestClient_Timeout(t *testing.T) {
+	t.Parallel()
+	timeout := 10 * time.Second
+	//timeout = 0
+	ret := make(chan struct{})
+	go func() {
+		time.Sleep(3 * time.Second)
+		ret <- struct{}{}
+	}()
+	if timeout == 0 {
+		<-ret
+		t.Log("success no time limit")
+	}
+	select {
+	case <-time.After(time.Second * 5):
+		t.Error("time out error")
+	case <-ret:
+		t.Log("success")
+	}
 }
