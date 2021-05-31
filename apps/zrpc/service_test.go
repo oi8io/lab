@@ -3,7 +3,9 @@ package zrpc
 import (
 	"fmt"
 	"net"
+	"os"
 	"reflect"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -86,5 +88,25 @@ func TestClient_Timeout(t *testing.T) {
 		t.Error("time out error")
 	case <-ret:
 		t.Log("success")
+	}
+}
+
+
+func TestXDial(t *testing.T) {
+	if runtime.GOOS == "linux" || runtime.GOOS =="darwin"{
+		ch := make(chan struct{})
+		addr := "/tmp/zrpc.sock"
+		go func() {
+			_ = os.Remove(addr)
+			l, err := net.Listen("unix", addr)
+			if err != nil {
+				t.Fatal("failed to listen unix socket")
+			}
+			ch <- struct{}{}
+			Accept(l)
+		}()
+		<-ch
+		_, err := XDial("unix@" + addr)
+		_assert(err == nil, "failed to connect unix socket")
 	}
 }

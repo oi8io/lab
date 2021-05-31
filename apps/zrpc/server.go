@@ -7,6 +7,7 @@ import (
 	"io"
 	"log"
 	"net"
+	"net/http"
 	"oi.io/apps/zrpc/codec"
 	"reflect"
 	"strings"
@@ -17,7 +18,10 @@ import (
 var (
 	DefaultServer = NewServer()
 	// invalidRequest is a placeholder for response argv when error occurs
-	invalidRequest = struct{}{}
+	invalidRequest   = struct{}{}
+	defaultRpcPath   = "/_rpc_"
+	defaultDebugPath = "/debug/_rpc_"
+	connected        = "200 Connected to zrpc"
 )
 
 func Accept(lis net.Listener) {
@@ -43,7 +47,7 @@ func (s *Server) Accept(lis net.Listener) {
 			log.Println("rpc server: accept error", err)
 			return
 		}
-		go s.ServerConn(conn)
+		go s.ServeConn(conn)
 	}
 }
 
@@ -55,7 +59,7 @@ func (s *Server) Register(rcvr interface{}) error {
 	return nil
 }
 
-func (s *Server) ServerConn(conn io.ReadWriteCloser) {
+func (s *Server) ServeConn(conn io.ReadWriteCloser) {
 	defer func() { _ = conn.Close() }()
 	var opt Option
 	if err := json.NewDecoder(conn).Decode(&opt); err != nil {
@@ -71,11 +75,11 @@ func (s *Server) ServerConn(conn io.ReadWriteCloser) {
 		log.Println("rpc server: invalid codec type:", opt.MagicNumber)
 		return
 	}
-	s.serveCodec(f(conn))
+	s.serveCodec(f(conn), &opt)
 
 }
 
-func (s *Server) serveCodec(cc codec.Codec) {
+func (s *Server) serveCodec(cc codec.Codec, opt *Option) {
 	sending := new(sync.Mutex)
 	wg := new(sync.WaitGroup)
 	for {
@@ -89,7 +93,7 @@ func (s *Server) serveCodec(cc codec.Codec) {
 			continue
 		}
 		wg.Add(1)
-		go s.handleRequest(cc, req, sending, wg, DefaultOption.HandleTimeout)
+		go s.handleRequest(cc, req, sending, wg, opt.HandleTimeout)
 	}
 }
 
@@ -169,14 +173,14 @@ func (s *Server) handleRequest(cc codec.Codec, req *request, sending *sync.Mutex
 
 }
 
-func (server *Server) findService(serviceMethod string) (svc *service, mtype *methodType, err error) {
+func (s *Server) findService(serviceMethod string) (svc *service, mtype *methodType, err error) {
 	dot := strings.LastIndex(serviceMethod, ".")
 	if dot < 0 {
 		err = errors.New("rpc server: service/method request ill-formed: " + serviceMethod)
 		return
 	}
 	serviceName, methodName := serviceMethod[:dot], serviceMethod[dot+1:]
-	svci, ok := server.serviceMap.Load(serviceName)
+	svci, ok := s.serviceMap.Load(serviceName)
 	if !ok {
 		err = errors.New("rpc server: can't find service " + serviceName)
 		return
@@ -187,4 +191,32 @@ func (server *Server) findService(serviceMethod string) (svc *service, mtype *me
 		err = errors.New("rpc server: can't find method " + methodName)
 	}
 	return
+}
+
+func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodConnect {
+		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		_, _ = io.WriteString(w, "405 must CONNECT\n")
+		//_, _ = w.Write([]byte("405 must CONNECT\n"))
+		return
+	}
+	conn, _, err := w.(http.Hijacker).Hijack()
+	if err != nil {
+		log.Print("rpc hijacking ", r.RemoteAddr, ": ", err.Error())
+		return
+	}
+	_, _ = io.WriteString(conn, "HTTP/1.0 "+connected+"\n\n")
+	s.ServeConn(conn)
+	return
+}
+
+func (s *Server) HandleHTTP() {
+	http.Handle(defaultRpcPath, s)
+	http.Handle(defaultDebugPath, debugHTTP{s})
+	log.Println("rpc server debug path:", defaultDebugPath)
+}
+
+func HandleHTTP() {
+	DefaultServer.HandleHTTP()
 }
