@@ -18,7 +18,8 @@ type Option struct {
 var DefaultOption = &Option{
 	MagicNumber:    MagicNumber,
 	CodecType:      codec.JsonType,
-	ConnectTimeout: 10 * time.Second,
+	ConnectTimeout: 1 * time.Second,
+	//HandleTimeout:  1 * time.Second,
 }
 
 func parseOptions(opts ...*Option) (*Option, error) {

@@ -228,6 +228,7 @@ func (client *Client) receive() {
 		case call == nil:
 			err = client.cc.ReadBody(nil)
 		case h.Error != "":
+
 			call.Error = fmt.Errorf(h.Error)
 			err = client.cc.ReadBody(nil)
 		default:

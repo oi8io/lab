@@ -32,7 +32,7 @@ func RegisterHandler(c *gin.Context) {
 	if req.DirtyTimestamp > 0 {
 		instance.DirtyTimestamp = req.DirtyTimestamp
 	}
-	global.Discovery.Registry.Register(instance, req.LatestTimestamp)
+	_, _ = global.Discovery.Registry.Register(instance, req.LatestTimestamp)
 	c.JSON(http.StatusOK, gin.H{
 		"code":    200,
 		"message": "",

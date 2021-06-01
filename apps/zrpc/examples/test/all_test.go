@@ -28,5 +28,4 @@ func TestAAABBB(t *testing.T) {
 			strings.Join(argv, ","),
 			strings.Join(returns, ","))
 	}
-
 }

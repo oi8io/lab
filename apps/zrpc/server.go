@@ -152,17 +152,16 @@ func (s *Server) handleRequest(cc codec.Codec, req *request, sending *sync.Mutex
 			req.h.Error = err.Error()
 			s.sendResponse(cc, req.h, invalidRequest, sending)
 			send <- struct{}{}
-			return
+		} else {
+			s.sendResponse(cc, req.h, req.replyv.Interface(), sending)
+			send <- struct{}{}
 		}
-		s.sendResponse(cc, req.h, req.replyv.Interface(), sending)
-		send <- struct{}{}
 	}()
 	if timeout == 0 { //没有超时就一直等着，直到完成
-		<-send
 		<-called
+		<-send
 		return
 	}
-
 	select {
 	case <-time.After(timeout):
 		req.h.Error = fmt.Sprintf("rpc server: request handle timeout: expect within %s", timeout)
@@ -185,6 +184,7 @@ func (s *Server) findService(serviceMethod string) (svc *service, mtype *methodT
 		err = errors.New("rpc server: can't find service " + serviceName)
 		return
 	}
+	fmt.Printf("rpc server: req find service %s \n", serviceName)
 	svc = svci.(*service)
 	mtype = svc.method[methodName]
 	if mtype == nil {
