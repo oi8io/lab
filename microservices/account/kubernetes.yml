@@ -1,0 +1,53 @@
+# deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: account-deployment
+  namespace: microservices
+spec:
+  selector:
+    matchLabels:
+      app: account
+  replicas: 2 # tells deployment to run 2 pods matching the template
+  template:
+    metadata:
+      labels:
+        app: account
+    spec:
+      containers:
+        - name: account
+          image: b.io:5000/account
+---
+#service
+apiVersion: v1
+kind: Service
+metadata:
+  name: account-service
+  namespace: microservices
+spec:
+  selector:
+    app: account
+  ports:
+    - name: http
+      protocol: TCP
+      port: 6767
+      targetPort: 6767
+
+
+---
+# ingress
+apiVersion: traefik.containo.us/v1alpha1
+kind: IngressRoute
+metadata:
+  name: account-api
+  namespace: microservices
+spec:
+  entryPoints:
+    - web
+  routes:
+    - match: Host(`account.b.io`)
+      kind: Rule
+      services:
+        - name: account-service
+          port: 6767
+

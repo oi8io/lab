@@ -14,7 +14,7 @@ func main() {
 	engine.Use(piu.Mid2())
 	engine.Use(piu.Mid3())
 	engine.AddFuncMap("FormatAsDate", api.FormatAsDate)
-	engine.LoadHTMLGlob("/Users/anker/develop/person/lab/apps/piu/cmd/templates/*")
+	engine.LoadHTMLGlob("/cmd/templates/*")
 	engine.Static("/assets", "./static")
 	engine.Get("/students", api.Students)
 	engine.Get("/date", api.Date)

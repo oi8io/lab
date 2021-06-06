@@ -13,12 +13,16 @@ type IBoltClient interface {
 	OpenBoltDb()
 	QueryAccount(accountId string) (model.Account, error)
 	Seed()
+	Check() bool
 }
 
 type BoltClient struct {
 	boltDB *bolt.DB
 }
 
+func (bc *BoltClient) Check() bool {
+	return bc.boltDB != nil
+}
 
 // Creates an "AccountBucket" in our BoltDB. It will overwrite any existing bucket of the same name.
 func (bc *BoltClient) initializeBucket() {
@@ -31,10 +35,8 @@ func (bc *BoltClient) initializeBucket() {
 	})
 }
 
-
 // Seed (n) make-believe account objects into the AcountBucket bucket.
 func (bc *BoltClient) seedAccounts() {
-	fmt.Println("++++++++")
 	total := 100
 	for i := 0; i < total; i++ {
 
@@ -43,7 +45,7 @@ func (bc *BoltClient) seedAccounts() {
 
 		// Create an instance of our Account struct
 		acc := model.Account{
-			Id: key,
+			Id:   key,
 			Name: "Person_" + strconv.Itoa(i),
 		}
 

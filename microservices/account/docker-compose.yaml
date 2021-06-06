@@ -1,0 +1,7 @@
+version: '3.3'
+services:
+  account:
+    restart: always
+    image: b.io:5000/account
+    ports:
+      - 6767:6767

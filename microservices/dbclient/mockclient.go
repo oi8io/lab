@@ -12,6 +12,11 @@ type MockBoltClient struct {
 	mock.Mock
 }
 
+func (m *MockBoltClient) Check() bool {
+	args := m.Mock.Called()
+	return args.Get(0).(bool)
+}
+
 // From here, we'll declare three functions that makes our MockBoltClient fulfill the interface IBoltClient that we declared in part 3.
 func (m *MockBoltClient) QueryAccount(accountId string) (model.Account, error) {
 	args := m.Mock.Called(accountId)
