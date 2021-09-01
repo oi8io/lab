@@ -1,0 +1,12 @@
+syntax = "proto3";
+
+
+option go_package = "rpc/pb";
+
+
+enum EmployeeStatus {
+    NORMAL = 0;
+    NO_VACATION = 1;
+    RESIGNED = 2;
+    RETIRED = 3;
+}

@@ -1,0 +1,5 @@
+package tmp
+
+func Tmp()  {
+	
+}
