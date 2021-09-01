@@ -714,3 +714,15 @@ func FactRec(m, n int) int {
 func Queen() {
 
 }
+
+// 1 2 3 4 5 6 7 8
+// 1 8 2 7 3 6 4 5
+func Exchange(in []int) (out []int) {
+	lenOf :=len(in)
+	for i := 0; i < lenOf-1; i++ {
+		if i<lenOf-i {
+			out = append(out, in[i],in[lenOf-1-i])
+		}
+	}
+	return
+}

@@ -2,6 +2,7 @@ package Lee
 
 import (
 	"fmt"
+	"reflect"
 	"testing"
 )
 
@@ -277,4 +278,25 @@ func TestHanoi(t *testing.T) {
 
 	x := FactTail(5)
 	fmt.Println(x)
+}
+
+func TestExchange(t *testing.T) {
+	type args struct {
+		in []int
+	}
+	tests := []struct {
+		name    string
+		args    args
+		wantOut []int
+	}{
+		{args: args{in: []int{1, 2, 3, 4, 5, 6, 7, 8}}, wantOut: []int{1, 8, 2, 7, 3, 6, 4, 5}},
+		// TODO: Add test cases.
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if gotOut := Exchange(tt.args.in); !reflect.DeepEqual(gotOut, tt.wantOut) {
+				t.Errorf("Exchange() = %v, want %v", gotOut, tt.wantOut)
+			}
+		})
+	}
 }
